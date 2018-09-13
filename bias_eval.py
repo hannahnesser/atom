@@ -310,17 +310,22 @@ def calc_band_stat(data, stat, grouping_quantity, groupings=None):
     else:
         groupby_list = ['SEASON', 'BAND']
 
+    if np.any(np.isin(data['TYPE'].str[:4], 'hipp')):
+        diff_cols = ['OBS', 'OBS_AVG', 'M45', 'M225', 'M45_OBS', 'M225_OBS', 'M225_M45']
+    else:
+        diff_cols =  ['OBS', 'OBS_AVG', 'M45', 'M225', 'G45_OBS', 'M45_OBS', 'M225_OBS', 'M225_M45', 'G45_M45']
+
     if str.lower(stat)=='std':
-        band_stat = data.groupby(groupby_list).std()[DIFF_COLS]
+        band_stat = data.groupby(groupby_list).std()[diff_cols]
     elif str.lower(stat)=='mean':
-        band_stat = data.groupby(groupby_list).mean()[DIFF_COLS]
+        band_stat = data.groupby(groupby_list).mean()[diff_cols]
 
     band_stat = band_stat.reset_index()
     band_stat = band_stat.sort_values(by=groupby_list)
 
-    counts = data.groupby(groupby_list).count()[DIFF_COLS[0]]
+    counts = data.groupby(groupby_list).count()[diff_cols[0]]
     counts = counts.reset_index()
-    counts = counts.rename(columns={DIFF_COLS[0] : 'COUNT'})
+    counts = counts.rename(columns={diff_cols[0] : 'COUNT'})
 
     band_stat = pd.merge(left=band_stat, right=counts,
                          how='left',

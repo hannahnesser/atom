@@ -4,7 +4,7 @@ from os import listdir
 from os.path import isfile, join
 import datetime
 
-FILE_PATH = '/Users/hannahnesser/Documents/Harvard/Research/ATom/'
+FILE_PATH = '/Users/hannahnesser/Documents/Harvard/Research/Model_Validation/ATom/'
 
 AT_DATES = [item[-8:] for item in listdir(FILE_PATH+'planeflight_files/ATom')
             if (item[0] != '.')]
@@ -28,6 +28,8 @@ def read_at(dates, filepath):
     at_data = pd.DataFrame()
     for i, file in enumerate(at_files):
         data = pd.read_csv(file)
+        data = data.sort_values(by=['HH:MM', 'POINT']).reset_index()
+        data['POINT'] = 1+data.index
         at_data = pd.concat([at_data, data])
 
     return at_data
@@ -45,6 +47,9 @@ def process_at(dates=AT_DATES, filepath=FILE_PATH):
     # Type
     at_data['TYPE'] = at_data['TYPE'].str.strip()
 
+    # AT_OBS
+    at_data['AT_OBS'] = at_data['AT_OBS'].round(3)
+
     # We will handle this in the planeflight module.
     # # Alt/Pre
     # at_data = at_data.loc[at_data['ALT/PRE'] > 0]
@@ -54,8 +59,9 @@ def process_at(dates=AT_DATES, filepath=FILE_PATH):
     # at_data['AT_POINT'] = 1+np.arange(at_data.shape[0])
 
     # Subset
-    at_data = at_data[['AT_POINT', 'YYYYMMDD', 'AT_OBS', 'CO_NOAA', 'CO_QCLS', 'O3', 'PROF']]
-    return at_data
+    at_data_final = at_data[['TYPE', 'AT_POINT', 'YYYYMMDD', 'AT_OBS', 'CO_NOAA', 'CO_QCLS', 'O3', 'PROF']]
+    at_data_long = at_data[['TYPE', 'AT_POINT', 'YYYYMMDD', 'HH:MM', 'LAT', 'LON', 'ALT/PRE', 'AT_OBS', 'CO_NOAA', 'CO_QCLS', 'O3', 'PROF']]
+    return at_data_final, at_data_long
 
 def read_pressure_levels(filepath=FILE_PATH+'pressure_levels.csv'):
     # Read pressure level file 
@@ -81,7 +87,7 @@ def read_pressure_levels(filepath=FILE_PATH+'pressure_levels.csv'):
     return pressure_levels, pressure_centers
 
 def read_noaa(filepath=FILE_PATH+'NOAA_site_codes.csv'):
-    noaa_sites = pd.read_csv('/Users/hannahnesser/Documents/Harvard/Research/ATom/NOAA_site_codes.csv')
+    noaa_sites = pd.read_csv(filepath)
     noaa_sites = noaa_sites.rename(columns={'Code' : 'TYPE', 'Remote' : 'REM'})
     noaa_sites['REM'] = noaa_sites['REM'].astype(bool)
     noaa_sites = noaa_sites[['TYPE', 'REM']]
@@ -111,6 +117,9 @@ def process_pf(filepath, at_data, pressure_centers, noaa_sites):
 
     # Scale up ppb to compare to observed quantity
     pf_tot['MOD'] = pf_tot['MOD']*10**9 #ppb
+
+    # Make sure the obs are only 3 digits long
+    pf_tot['OBS'] = pf_tot['OBS'].round(3)
 
     # Fix data types
     pf_tot['POINT'] = pf_tot['POINT'].astype(int)
@@ -160,11 +169,12 @@ def define_oceans(data, arctic_boundary, non_ocean_dates):
     # https://www.nodc.noaa.gov/woce/woce_v3/wocedata_1/woce-uot/summary/bound.htm
     data['OCEAN'] = 'NONE'
     data.loc[(data['TYPE'].str.slice(0,4) == 'ATom') 
-               & (data['LON'] < -70) 
+               & ((data['LON'] < -70) | (data['LON'] > 120))
                & (data['LAT'] < arctic_boundary), 
                'OCEAN'] = 'PAC'
     data.loc[(data['TYPE'].str.slice(0,4) == 'ATom') 
-               & (data['LON'] > -70) 
+               & (data['LON'] > -70)
+               & (data['LON'] < 120) 
                & (data['LAT'] < arctic_boundary), 
                'OCEAN'] = 'ATL'
     data.loc[(data['TYPE'].str.slice(0,4) == 'ATom') 

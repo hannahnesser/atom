@@ -3,6 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib import cm
 import basic_funcs as bf
+import datetime as dt
 
 def label_vprofs(data, rolling_avg_window=30, threshold=15):
     data['LAB'] = 0
@@ -58,22 +59,30 @@ def remove_segmented_profs(data, label_column='LAB', threshold=10):
     data.loc[data[label_column].isin(drop_labels), label_column] = 0
     return data
 
-def remove_takeoff_landing(data, label_column='LAB', time_threshold=500):
-    min_label = np.min(data[data[label_column] > 0][label_column])
-    max_label = np.max(data[label_column])
-    labels = [min_label, max_label]
+def remove_takeoff_landing(data, label_column='LAB', time_threshold_hr=3):
+    # min_label = np.min(data[data[label_column] > 0][label_column])
+    # max_label = np.max(data[label_column])
+    # labels = [min_label, max_label]
+    labels = []
+    time_threshold = time_threshold_hr*60*60 # time threshold in seconds
 
+    # Create a cumulative hh:mm column
+    tot_data = data.copy()
+    hhmm_running = pd.to_timedelta(tot_data['HHMM']//100, unit='h') + pd.to_timedelta(tot_data['HHMM']%100, unit='m')
+    tot_data['HHMM_running'] = pd.to_datetime(tot_data['YYYYMMDD']) + hhmm_running 
+    
     # Find take-offs and landings  
-    time_diff = np.diff(data['HHMM']).astype(int)
+    time_diff = tot_data['HHMM_running'].iloc[1:].reset_index(drop=True)-tot_data['HHMM_running'].iloc[:-1].reset_index(drop=True)
+    time_diff = time_diff.dt.total_seconds()
     time_diff = np.append(time_diff, 0)
     idx = np.where((time_diff > time_threshold) | (time_diff < 0))[0]
     for j, index in enumerate(idx):
-        landing_label, takeoff_label = bf.nearest_labels(data['LAB'], index)
+        landing_label, takeoff_label = bf.nearest_labels(tot_data['LAB'], index)
         labels = labels + [landing_label, takeoff_label]
 
     # Set label equal to 0
-    data.loc[data[label_column].isin(labels), label_column] = 0
-    return data
+    tot_data.loc[tot_data[label_column].isin(labels), label_column] = 0
+    return tot_data
 
 def plot_profiles(labeled_data, label_column='LAB'):
     days = labeled_data['YYYYMMDD'].unique()

@@ -1,4 +1,3 @@
-
 import vert_profs as vp
 import pandas as pd
 import numpy as np
@@ -21,9 +20,9 @@ def calc_tot_cols(full_data, pressure_bands, pressure_diff=None, label_column='L
     column_list = [label_column, 'P_BANDS', 'P_DIFF', 'TYPE', 'YYYYMMDD', 'HHMM',
                    'LAT', 'LON', 'OBS', 'OBS_AVG', 'MOD', 'DIFF']
     columns_datetime = ['TYPE', label_column, 'YYYYMMDD', 'HHMM']
-    if 'ATL' in full_data:
-        column_list = column_list + ['ATL']
-        columns_datetime = columns_datetime + ['ATL']
+    if 'OCEAN' in full_data:
+        column_list = column_list + ['OCEAN']
+        columns_datetime = columns_datetime + ['OCEAN']
         
     data = full_data[column_list]
     
